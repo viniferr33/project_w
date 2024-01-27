@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"project_w/video"
+	"strconv"
+	"strings"
 )
 
 type videoInfo struct {
@@ -44,7 +47,55 @@ func GetVideo(filepath string) (*video.Video, error) {
 		return nil, err
 	}
 
-	fmt.Println(string(output))
-	fmt.Println(videoInfo)
-	return &video.Video{}, nil
+	startTime, err := strconv.ParseFloat(videoInfo.Format.StartTime, 32)
+	if err != nil {
+		return nil, err
+	}
+
+	duration, err := strconv.ParseFloat(videoInfo.Format.Duration, 32)
+	if err != nil {
+		return nil, err
+	}
+
+	size, err := strconv.Atoi(videoInfo.Format.Size)
+	if err != nil {
+		return nil, err
+	}
+
+	splitFilename := strings.Split(videoInfo.Format.Filename, ".")
+
+	return &video.Video{
+		Id:         splitFilename[0],
+		Filename:   videoInfo.Format.Filename,
+		FormatName: videoInfo.Format.FormatName,
+		StartTime:  startTime,
+		Duration:   duration,
+		Size:       size,
+	}, nil
+}
+
+func SliceVideo(v video.Video, videoSlices *[]video.Video) error {
+	outputPattern := v.Id + "_seg"
+	cmd := exec.Command("ffmpeg", "-i", v.Filename, "-c", "copy", "-map", "0", "-f", "segment", "-segment_time", "600", "-reset_timestamps", "1", "-segment_format", "mp4", outputPattern+"_%03d.mp4")
+
+	_, err := cmd.CombinedOutput()
+	if err != nil {
+		return err
+	}
+
+	segments, err := filepath.Glob(fmt.Sprintf("%s*.mp4", outputPattern))
+	if err != nil {
+		return err
+	}
+
+	for _, segment := range segments {
+		newVideo, err := GetVideo(segment)
+		if err != nil {
+			return err
+		}
+
+		*videoSlices = append(*videoSlices, *newVideo)
+	}
+
+	return nil
 }
