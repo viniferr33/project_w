@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"project_w/ffmpeg"
-	"project_w/video"
 )
 
 func main() {
@@ -14,11 +13,10 @@ func main() {
 
 	fmt.Println(v)
 
-	vList := make([]video.Video, 0)
-	err = ffmpeg.SliceVideo(*v, &vList)
+	a, err := ffmpeg.ConvertMp4ToFlac(*v)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	fmt.Println(vList)
+	fmt.Println(a)
 }

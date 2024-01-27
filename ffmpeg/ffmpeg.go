@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"project_w/audio"
 	"project_w/video"
 	"strconv"
 	"strings"
@@ -71,6 +72,22 @@ func GetVideo(filepath string) (*video.Video, error) {
 		StartTime:  startTime,
 		Duration:   duration,
 		Size:       size,
+	}, nil
+}
+
+func ConvertMp4ToFlac(v video.Video) (*audio.Audio, error) {
+	output := fmt.Sprintf("%s.flac", v.Id)
+	cmd := exec.Command("ffmpeg", "-i", v.Filename, "-vn", "-c:a", "flac", output)
+	_, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, err
+	}
+
+	return &audio.Audio{
+		Id:       v.Id,
+		Filename: output,
+		Filetype: "flac",
+		Duration: v.Duration,
 	}, nil
 }
 
