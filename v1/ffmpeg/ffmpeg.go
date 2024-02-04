@@ -6,8 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"project_w/audio"
-	"project_w/video"
+	"project_w/v1/audio"
+	"project_w/v1/video"
 	"strconv"
 	"strings"
 )
