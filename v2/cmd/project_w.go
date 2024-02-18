@@ -6,10 +6,11 @@ import (
 	"log"
 	"log/slog"
 	"project_w/v2/config"
+	_ "project_w/v2/config"
 	"project_w/v2/ffmpeg"
 	"project_w/v2/filehandler"
-
-	_ "project_w/v2/config"
+	"project_w/v2/gcs"
+	"project_w/v2/speech"
 )
 
 func main() {
@@ -63,6 +64,30 @@ func main() {
 
 		segmentAudioList = append(segmentAudioList, *audio)
 		slog.Info(fmt.Sprintf("%v", *audio))
+	}
+
+	gcsAudioList := make([]string, 0)
+	for _, audio := range segmentAudioList {
+		uploadFile, err := gcs.UploadFile(*audio.File, config.GCS_BUCKET)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		slog.Info(fmt.Sprintf("Uploaded -> %s", uploadFile))
+		gcsAudioList = append(gcsAudioList, uploadFile)
+	}
+
+	//gcsAudioList = append(gcsAudioList, "gs://project_w_audio/2b3a3779-e479-4af2-b59c-2e7a26df7272_000.flac")
+	//gcsAudioList = append(gcsAudioList, "gs://project_w_audio/2b3a3779-e479-4af2-b59c-2e7a26df7272_001.flac")
+
+	transcriptFiles := make([]*filehandler.File, 0)
+	for _, s := range gcsAudioList {
+		f, err := speech.SpeechToText(s, config.TMP_DIR)
+		if err != nil {
+			log.Panic(err)
+		}
+		slog.Info(fmt.Sprintf("Transcript -> %s", s))
+		transcriptFiles = append(transcriptFiles, f)
 	}
 
 }
