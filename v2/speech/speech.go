@@ -63,6 +63,8 @@ func SpeechToText(uri string, fileDestination string) (*filehandler.File, error)
 			LanguageCode:               "pt-BR",
 			EnableWordTimeOffsets:      true,
 			EnableAutomaticPunctuation: true,
+			Model:                      "latest_long",
+			UseEnhanced:                true,
 		},
 		Audio: &speechpb.RecognitionAudio{
 			AudioSource: &speechpb.RecognitionAudio_Uri{

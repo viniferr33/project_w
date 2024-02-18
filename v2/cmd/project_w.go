@@ -2,8 +2,11 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"log/slog"
+	"os"
+	"project_w/v2/ai"
 	_ "project_w/v2/config"
 	"project_w/v2/filehandler"
 	"project_w/v2/speech"
@@ -129,9 +132,32 @@ func main() {
 		}
 	}
 
-	_, err := transcript.ConvertResultToTranscript(bestAlternatives, "tmp")
+	resultToTranscript, err := transcript.ConvertResultToTranscript(bestAlternatives, "tmp")
 	if err != nil {
 		log.Panic(err)
 	}
 	slog.Info(fmt.Sprintf("Converted to Transcript"))
+
+	transcriptFile, err := os.Open(resultToTranscript.File.Filepath)
+	if err != nil {
+		log.Panic(err)
+	}
+	defer transcriptFile.Close()
+
+	content, err := io.ReadAll(transcriptFile)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	prompt := fmt.Sprintf("Sumarize o seguinte conteudo em pequenas frases, formate o texto usando Markdown:\n%s", content)
+	_, err = ai.PredictText(prompt)
+	if err != nil {
+		log.Panic(err)
+	}
+	/*
+		err = ai.GetEntities(string(content))
+		if err != nil {
+			log.Panic(err)
+		}
+	*/
 }
