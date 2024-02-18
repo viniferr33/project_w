@@ -12,18 +12,20 @@ import (
 )
 
 type Word struct {
-	StartTime int64  `json:"start_time,omitempty"`
-	EndTime   int64  `json:"end_time,omitempty"`
-	Word      string `json:"word,omitempty"`
-	Speaker   string `json:"speaker,omitempty"`
+	StartTime       int64  `json:"start_time,omitempty"`
+	EndTime         int64  `json:"end_time,omitempty"`
+	Word            string `json:"word,omitempty"`
+	Speaker         string `json:"speaker,omitempty"`
+	ConfidenceScore float32
 }
 
 type TranscriptResult struct {
-	Source       string  `json:"source,omitempty"`
-	EndTime      int64   `json:"end_time,omitempty"`
-	LanguageCode string  `json:"language_code,omitempty"`
-	Text         string  `json:"text,omitempty"`
-	Words        []*Word `json:"words,omitempty"`
+	Source          string  `json:"source,omitempty"`
+	EndTime         int64   `json:"end_time,omitempty"`
+	LanguageCode    string  `json:"language_code,omitempty"`
+	Text            string  `json:"text,omitempty"`
+	Words           []*Word `json:"words,omitempty"`
+	ConfidenceScore float32
 }
 
 /**
@@ -61,7 +63,6 @@ func SpeechToText(uri string, fileDestination string) (*filehandler.File, error)
 			LanguageCode:               "pt-BR",
 			EnableWordTimeOffsets:      true,
 			EnableAutomaticPunctuation: true,
-			MaxAlternatives:            1,
 		},
 		Audio: &speechpb.RecognitionAudio{
 			AudioSource: &speechpb.RecognitionAudio_Uri{
@@ -81,31 +82,37 @@ func SpeechToText(uri string, fileDestination string) (*filehandler.File, error)
 		return nil, err
 	}
 
-	transcriptResultList := make([]TranscriptResult, 0)
+	transcriptResultList := make([][]TranscriptResult, 0)
 	for _, result := range resp.Results {
+
+		transcriptAlternatives := make([]TranscriptResult, 0)
 		for _, alternative := range result.Alternatives {
 			words := make([]*Word, 0)
 			for _, word := range alternative.Words {
 				w := Word{
-					StartTime: word.StartTime.Seconds,
-					EndTime:   word.EndTime.Seconds,
-					Word:      word.Word,
-					Speaker:   word.SpeakerLabel,
+					StartTime:       word.StartTime.Seconds,
+					EndTime:         word.EndTime.Seconds,
+					Word:            word.Word,
+					Speaker:         word.SpeakerLabel,
+					ConfidenceScore: word.Confidence,
 				}
 
 				words = append(words, &w)
 			}
 
 			transcriptResult := TranscriptResult{
-				Source:       uri,
-				EndTime:      result.ResultEndTime.Seconds,
-				LanguageCode: result.LanguageCode,
-				Text:         alternative.Transcript,
-				Words:        words,
+				Source:          uri,
+				EndTime:         result.ResultEndTime.Seconds,
+				LanguageCode:    result.LanguageCode,
+				Text:            alternative.Transcript,
+				Words:           words,
+				ConfidenceScore: alternative.Confidence,
 			}
 
-			transcriptResultList = append(transcriptResultList, transcriptResult)
+			transcriptAlternatives = append(transcriptAlternatives, transcriptResult)
 		}
+
+		transcriptResultList = append(transcriptResultList, transcriptAlternatives)
 	}
 
 	resultTranscriptFileName := fmt.Sprintf("%s/%s.json", fileDestination, uuid.New().String())
@@ -127,4 +134,34 @@ func SpeechToText(uri string, fileDestination string) (*filehandler.File, error)
 	}
 
 	return fileH, nil
+}
+
+func LoadResultsFromFile(f *filehandler.File) ([][]TranscriptResult, error) {
+	file, err := os.Open(f.Filepath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var transcriptResults [][]TranscriptResult
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(&transcriptResults)
+	if err != nil {
+		return nil, err
+	}
+
+	return transcriptResults, nil
+}
+
+func FindBestAlternative(alternatives []TranscriptResult) *TranscriptResult {
+	var bestScore float32 = 0.0
+	var bestAlternative TranscriptResult
+
+	for _, alternative := range alternatives {
+		if alternative.ConfidenceScore > bestScore {
+			bestAlternative = alternative
+		}
+	}
+
+	return &bestAlternative
 }
